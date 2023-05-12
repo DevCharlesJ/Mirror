@@ -69,7 +69,7 @@ if HUB:
     stream_line = []
     stream_buffer = 10
 
-    def streamer():
+    def playback():
         global stream_buffer, stream_line
         
         while working:
@@ -108,15 +108,14 @@ if HUB:
         while working:
             showing = HUB.getShowingStream()
             if showing and HUB.UI.isStreamOpen():
-                if len(stream_line) < stream_buffer*2:
-                    start = time()
-                    #  request image from address, specifying image count/buffer
-                    socket_.send_literal(f"getnextimagebuffer|{'|'.join(showing.split())}|{stream_buffer}")
-                    streamed_bytes:list = socket_.recv_unpickled() # will be list
+                start = time()
+                #  request image from address, specifying image count/buffer
+                socket_.send_literal(f"getnextimagebuffer|{'|'.join(showing.split())}|{stream_buffer}")
+                streamed_bytes:list = socket_.recv_unpickled() # will be list
 
-                    if streamed_bytes:
-                        stream_line += streamed_bytes
-                        recieve_rate = time()-start
+                if streamed_bytes:
+                    stream_line += streamed_bytes
+                    recieve_rate = time()-start
 
             if time()-tick > 10: # every ten seconds
                 updateStreamList()
@@ -125,8 +124,8 @@ if HUB:
     workThread = Thread(target=worker)
     workThread.start()
 
-    streamThread = Thread(target=streamer)
-    streamThread.start()
+    playbackThread = Thread(target=playback)
+    playbackThread.start()
 
 
 
@@ -134,4 +133,4 @@ if HUB:
 app.exec()
 working = False
 workThread.join()
-streamThread.join()
+playbackThread.join()
