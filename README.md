@@ -20,4 +20,4 @@ An observer is another type of connection identity that can send commands to the
 - 'getconnectioninfos' => Returns A List of (ip address, port) for each active streamer connected to the server
 
 ### TestApp.py
-TestApp.py is a simple GUI application that graphically showcases the potential of an observer (for streamed images). The app will show a list of streamer connections which you can click and view the image stream. The list is refreshed every 10 seconds. PyQt6 is required for the application to run
+TestApp.py is a simple GUI application that graphically showcases the potential of an observer (for streamed images). The app will show a list of streamer connections which you can click to view its image stream. The list is refreshed every 10 seconds. PyQt6 is required for the application to run
