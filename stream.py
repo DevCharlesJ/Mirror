@@ -1,20 +1,9 @@
-import socket
-
-import PIL.Image
 from PIL.Image import *
-import pickle
 from threading import Thread
-from time import time, sleep
-import os
+from time import time
 
-from custom_socket import COMMUNICATION, CustomSocket
+from custom_socket import CustomSocket
 
-HEADER = 64
-HOST = socket.gethostbyname(socket.gethostname())
-PORT = 9666
-
-OK_CODE = 200
-ERR_CODE = 404
 
 class Stream():
     first_addr = ()
@@ -22,7 +11,6 @@ class Stream():
         self.__socket_ = socket_
 
         self.imageThread:Thread = None
-        # self.__snapshot:bytes = None
         self.__stream = [] # collection of streams, maintain stream length to be self.__MAX_STREAM_LENGTH + self.__garbage_size (350)
         self.__MAX_STREAM_LENGTH = 300
         self.__GARBAGE_SIZE = 50
@@ -44,7 +32,7 @@ class Stream():
         
     def getAvailableStreamLength(self) -> int:
         """Return the number of available streamed Image bytes in the array"""
-        return len(self.__stream)-self.__num_garbage
+        return max(0, len(self.__stream)-self.__num_garbage)
 
     
     def getBufferedStream(self, start:int=0, buffer:int=1) -> list:
@@ -53,7 +41,7 @@ class Stream():
             if start > available:
                 return []
             
-            start += self.__num_garbage # account for garbage in splice
+            # start += self.__num_garbage # account for garbage in splice
             reach = start+buffer
             #true_reach =  the lesser number between reach and what is available
             return self.__stream[start: reach if reach < available else available]
@@ -86,13 +74,11 @@ class Stream():
         self.__socket_.settimeout(3)
 
         def RI(): # recieve Image
-            no_bytes = 0
-            while self.__socket_ and self.__running and no_bytes < 3:
+            while self.__socket_ and self.__running:
                 # connection should send the length of the pickled image in bytes
                 try:
                     
                     start = time()
-                    self.__socket_.send_literal(1) # simple code tells connection to send a stream
                     snapshot = self.__socket_.recv()
                     assert snapshot
 
@@ -106,24 +92,15 @@ class Stream():
 
 
                 except Exception as e:
-                    # input(e)
-                    no_bytes += 1
+                    pass
+                    # print(e)
+                    #  Check if connection terminated?
                     # Socket_Tools.socket_send_literal(self.__conn, COMMUNICATION.CODES.ERROR) # SEND ERROR
 
             self.stop()
 
         self.imageThread = Thread(target=RI)
         self.imageThread.start()
-
-        # wait 3 seconds for client to send first snapshot, cancel the stream
-        elapsed_time = 0
-        while len(self.__stream) == 0:
-            if elapsed_time > 3:
-                self.stop()
-                break
-
-            sleep(1)
-            elapsed_time += 1
 
         
 
@@ -137,7 +114,7 @@ class Stream():
         except: pass
 
         # WILL CHANGED TO SEND A CLOSED CODE later
-        self.__socket_.send_literal(COMMUNICATION.CODES.ERROR)
+        # self.__socket_.send_literal(COMMUNICATION.CODES.ERROR)
 
         if callable(self.__streamEndCallback):
             self.__streamEndCallback()

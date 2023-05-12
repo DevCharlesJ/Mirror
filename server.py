@@ -1,13 +1,13 @@
 import socket
 from threading import Thread
-from time import time
+from time import time, sleep
 import os
 
 from stream import Stream
 from custom_socket import CustomSocket
 
 class CONNECTION_TYPE:
-    STREAMER = 0
+    STREAMER = 1
     OBSERVER = 999
 
     @staticmethod
@@ -86,7 +86,10 @@ class Streamer(Connection_Handler):
     # TO BE CALLED BY STREAM
     def __onGarbageDay(self, garbage_removed:int):
         for addr in self.__address_stream_index.keys():
-            self.__address_stream_index[addr] = min(0, self.getAddressStreamIndex(addr)-garbage_removed)
+            index = self.getAddressStreamIndex(addr)
+            if index > garbage_removed: # if index is passed garbage point
+                # reduce garbage amount from index
+                self.__address_stream_index[addr] = max(0, index-garbage_removed) # Using max just in case index goes negative, shouldn't happen
 
     def Go(self):
         self.stream.setStreamEndCallback(self.End)
@@ -94,6 +97,19 @@ class Streamer(Connection_Handler):
         while not self.hasEnded():
             if not self.isStreamRunning():
                 self.startStream()
+
+                self.connection.socket_.send_literal("streamstart") # Tell socket_ to start sending bytes
+
+                # wait 3 seconds for client to send first snapshot
+                # if no snapshot, close the stream
+                elapsed_time = 0
+                while not self.hasEnded() and self.stream.getAvailableStreamLength() == 0:
+                    if elapsed_time > 3:
+                        self.stream.stop()
+                        break
+
+                    sleep(1)
+                    elapsed_time += 1
 
     def onUpdateObservers(self):
         if self.observers <= 0:
@@ -167,72 +183,64 @@ class Observer(Connection_Handler):
     
         try:
             while not self.hasEnded():
-                no_requests = 0
-                while no_requests < 3:
-                    # Socket_Tools.socket_send_literal(self.connection.socket_, "ready")
-                    request = self.connection.socket_.recv_decoded()
-                    if not request:
-                        if last_addr:
-                            handler = self.getServer().getHandler(last_addr[0], int(last_addr[1]))
-                            if handler and handler.isStreamer():
-                                handler.observerLeft(self.connection.addr)
+                request = self.connection.socket_.recv_decoded()
+                if not request:
+                    if last_addr:
+                        handler = self.getServer().getHandler(last_addr[0], int(last_addr[1]))
+                        if handler and handler.isStreamer():
+                            handler.observerLeft(self.connection.addr)
 
-                            last_addr = ()
+                        last_addr = ()
 
-                        no_requests += 1
-                        self.connection.socket_.noop() # check connectivity, can throw error 
-                        continue
-                    else:
-                        no_requests = 0 # reset no_request count
+                    self.connection.socket_.noop() # check connectivity, can throw error 
+                    continue
 
 
-                    if isinstance(request, str):
-                        args = request.split("|")
-                        if not args: continue
-                        
-                        if args[0] == "getconnectioninfos":
-                            self.connection.socket_.send_pickled(self.getServer().getConnectionInfos())
-                        elif args[0] == "getnextimagebuffer":
-                            addr = (args[1], args[2])
-                            buffer = int(args[3])
-
-                            handler = None
-                            addr_changed = last_addr != addr
-
-                            if last_addr and addr_changed:
-                                # let last stream know an observer has left its stream
-                                last_handler = self.getServer().getHandler(last_addr[0], int(last_addr[1]))
-                                if last_handler and last_handler.isStreamer():
-                                    last_handler.observerLeft(self.connection.addr)
-
-                                last_addr = None
+                if isinstance(request, str):
+                    args = request.split("|")
+                    if not args: continue
+                    
+                    if args[0] == "getconnectioninfos":
+                        self.connection.socket_.send_pickled(self.getServer().getConnectionInfos())
 
 
-                            handler = self.getServer().getHandler(args[1], int(args[2]))
+                    elif args[0] == "getnextimagebuffer":
+                        addr = (args[1], args[2])
+                        buffer = int(args[3])
+
+                        handler = None
+                        addr_changed = last_addr != addr
+
+                        if last_addr and addr_changed:
+                            # let last stream know an observer has left its stream
+                            last_handler = self.getServer().getHandler(last_addr[0], int(last_addr[1]))
+                            if last_handler and last_handler.isStreamer():
+                                last_handler.observerLeft(self.connection.addr)
+
+                            last_addr = None
+
+
+                        handler = self.getServer().getHandler(args[1], int(args[2]))
+                        if addr_changed:
+                            handler.setAddressStreamIndex(self.connection.addr, handler.getAvailableStreamLength()-buffer)
+
+
+                        if handler and handler.isStreamer():
                             if addr_changed:
-                                handler.setAddressStreamIndex(self.connection.addr, handler.getAvailableStreamLength()-buffer)
+                                handler.observerJoined()
+                            last_addr = (args[1], args[2])
 
+                        stream_index = handler.getAddressStreamIndex(self.connection.addr)
+                        streamed_bytes = []
+                        if handler:
+                            # args[3] is the buffer
+                            streamed_bytes = handler.getBufferedStream(start=stream_index, buffer=buffer)
 
-                            if handler and handler.isStreamer():
-                                if addr_changed:
-                                    handler.observerJoined()
-                                last_addr = (args[1], args[2])
-
-                            stream_index = handler.getAddressStreamIndex(self.connection.addr)
-                            streamed_bytes = []
-                            if handler:
-                                # args[3] is the buffer
-                                streamed_bytes = handler.getBufferedStream(start=stream_index, buffer=buffer)
-
-                            # if the length of streamed_bytes returned is less than requested buffer
-                            if len(streamed_bytes) < buffer:
-                                handler.setAddressStreamIndex(self.connection.addr, handler.getAvailableStreamLength())
-
-                            else:
-                                handler.setAddressStreamIndex(self.connection.addr, stream_index + len(streamed_bytes))
-                            
-                            
-                            self.connection.socket_.send_pickled(streamed_bytes)
+                        # preceed index by the number of how many bytes elements were recieved
+                        handler.setAddressStreamIndex(self.connection.addr, stream_index + len(streamed_bytes))
+                        
+                        
+                        self.connection.socket_.send_pickled(streamed_bytes)
         except Exception as e:
             print(e)
             pass
@@ -403,7 +411,7 @@ if __name__ == '__main__':
         os.chdir(os.path.dirname(__file__))
         
         print("Server Configuration")
-        HOST = input("Enter IPv4 Address: ")
+        HOST = input("Enter Server IPv4 Address: ")
         PORT = int(input("Enter Port: "))
         
         server = Server(HOST, PORT)
