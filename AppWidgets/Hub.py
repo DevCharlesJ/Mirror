@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QWidget, QGridLayout, QPushButton, QLabel, QVBoxLayout
+    QWidget, QPushButton, QLabel, QVBoxLayout
 )
 from PyQt6.QtGui import QPixmap, QAction
 from PyQt6.QtCore import QByteArray
@@ -31,6 +31,9 @@ class Stream(QWidget):
             self.previewLbl.setPixmap(pixmap)
         except:
             pass
+
+    def clearStreamImage(self):
+        self.previewLbl.setPixmap(QPixmap(648, 486))
             
 
 class HubUI(QWidget):
@@ -72,6 +75,9 @@ class HubUI(QWidget):
 
         self.__stream.setStreamImage(bytes_)
 
+    def clearStreamImage(self):
+        self.__stream.clearStreamImage()
+
     def showStream(self, name):
         if not isinstance(name, str):
             return
@@ -112,8 +118,9 @@ class Hub:
     class ACTIONS:
         NEW_STREAM = 1
         REMOVE_STREAM = 2
-        SET_STREAM_PREVIEW = 3
-        CLEAR_STREAM_LIST = 4
+        SET_STREAM_IMAGE = 3
+        CLEAR_STREAM_IMAGE = 4
+        CLEAR_STREAM_LIST = 5
 
         # @classmethod
         # def isAction(cls, action_code:int):
@@ -137,9 +144,11 @@ class Hub:
 
         action, *args = self.__action_queue.pop(0)
 
-        if action == Hub.ACTIONS.SET_STREAM_PREVIEW:
+        if action == Hub.ACTIONS.SET_STREAM_IMAGE:
             if len(args) == 1:
                 self.UI.newStreamImage(args[0])
+        elif action == Hub.ACTIONS.CLEAR_STREAM_IMAGE:
+            self.UI.clearStreamImage()
         elif action == Hub.ACTIONS.NEW_STREAM:
             if len(args) == 1:
                 self.UI.newStream(args[0])
@@ -155,7 +164,10 @@ class Hub:
 
     # ACTIONS THAT WOULD REQIURE THREADED ACTIVITY, IN SAME THREAD
     def setStreamImage(self, bytes_:bytes):
-        self.__newHubAction(Hub.ACTIONS.SET_STREAM_PREVIEW, bytes_)
+        self.__newHubAction(Hub.ACTIONS.SET_STREAM_IMAGE, bytes_)
+
+    def clearStreamImage(self):
+        self.__newHubAction(Hub.ACTIONS.CLEAR_STREAM_IMAGE)
 
     def newStream(self, name:str, joinCallback=None) -> Stream:
         if not isinstance(name, str): return

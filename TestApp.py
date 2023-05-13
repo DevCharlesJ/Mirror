@@ -85,13 +85,13 @@ if HUB:
                         #sleep((recieve_rate+last_recieve_rate)/2)
                         if HUB.getShowingStream() != showing: # showing changed
                             stream_line = []
+                            HUB.clearStreamImage() # set playback to nothing (black screen)
                     except Exception as e:
                         print(e)
                         pass
                 else:
                     stream_line = []
-            else:
-                HUB.setStreamImage(bytes()) # set playback to nothing (black screen)
+                    HUB.clearStreamImage() # set playback to nothing (black screen)
 
 
             # sleep((recieve_rate+last_recieve_rate)/2)
