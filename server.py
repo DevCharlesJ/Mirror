@@ -222,7 +222,7 @@ class Observer(Connection_Handler):
 
                         handler = self.getServer().getHandler(args[1], int(args[2]))
                         if addr_changed:
-                            handler.setAddressStreamIndex(self.connection.addr, handler.getAvailableStreamLength()-buffer)
+                            handler.setAddressStreamIndex(self.connection.addr, handler.getAvailableStreamLength())
 
 
                         if handler and handler.isStreamer():
@@ -238,7 +238,6 @@ class Observer(Connection_Handler):
 
                         # preceed index by the number of how many bytes elements were recieved
                         handler.setAddressStreamIndex(self.connection.addr, stream_index + len(streamed_bytes))
-                        
                         
                         self.connection.socket_.send_pickled(streamed_bytes)
         except Exception as e:
@@ -326,14 +325,6 @@ class Server():
 
         self.__connection_pool.pop(addr, None)
     
-    # NOT LOOKING UP full addr (ip, ?) yet
-    # Need to send list of addr to observer, when requested
-    # def getConnectionHandler(self, addr_ip:str) -> Connection_Handler | None:
-    #     if not isinstance(addr_ip, str):
-    #         return None
-        
-    #     self.connections.get()
-
     def isRunning(self):
         return self.__running == True
 
