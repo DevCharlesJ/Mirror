@@ -73,27 +73,25 @@ if HUB:
         global stream_buffer, stream_line
         
         while working:
-            if len(stream_line) >= stream_buffer:
-
-
-                while len(stream_line) > 0:
-                    showing = HUB.getShowingStream()
-                    if showing and HUB.UI.isStreamOpen():
-                        try:
-                            # start = time()
-                            bytes_, when = stream_line.pop(0)
-                            sleep(when)
-                            HUB.setStreamImage(bytes_)
-                            # print("Average rate is", (recieve_rate+last_recieve_rate)/2, end="\r") # get rate
-                            #sleep((recieve_rate+last_recieve_rate)/2)
-                            if HUB.getShowingStream() != showing: # showing changed
-                                stream_line.clear()
-                        except Exception as e:
-                            print(e)
-                            pass
-                    else:
-                        stream_line.clear()
-                        break
+            if len(stream_line) > 0:
+                showing = HUB.getShowingStream()
+                if showing and HUB.UI.isStreamOpen():
+                    try:
+                        # start = time()
+                        bytes_, when = stream_line.pop(0)
+                        sleep(when)
+                        HUB.setStreamImage(bytes_)
+                        # print("Average rate is", (recieve_rate+last_recieve_rate)/2, end="\r") # get rate
+                        #sleep((recieve_rate+last_recieve_rate)/2)
+                        if HUB.getShowingStream() != showing: # showing changed
+                            stream_line = []
+                    except Exception as e:
+                        print(e)
+                        pass
+                else:
+                    stream_line = []
+            else:
+                HUB.setStreamImage(bytes()) # set playback to nothing (black screen)
 
 
             # sleep((recieve_rate+last_recieve_rate)/2)
