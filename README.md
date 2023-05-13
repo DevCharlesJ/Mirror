@@ -1,4 +1,4 @@
-# Mirror
+# Stream
 Testing a simple client-server model for sending and receiving streamed images
 
 Uses simple socket traffic for communication. HTTP unsupported
