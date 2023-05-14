@@ -30,6 +30,7 @@ class CustomSocket(socket.socket):
 
 
     def recv(self) -> bytes:
+        """Recieve bytes"""
         try:
             # Noops should not be returned
             length = int(super().recv(COMMUNICATION.HEADER))
@@ -49,6 +50,7 @@ class CustomSocket(socket.socket):
             return bytes()
         
     def recv_decoded(self) -> str:
+        """Recieve decoded bytes"""
         bytes_ = self.recv()
         
         if bytes_:
@@ -57,8 +59,13 @@ class CustomSocket(socket.socket):
             return ""
         
     def recv_literal(self):
+        """Recieve a literal
+         
+        Returns:
+            String, Boolean, Number (as float), None"""
+        
         decoding = self.recv_decoded()
-        if not decoding:
+        if decoding == "None": # case-sentive to allow other variations to return as String
             return None
 
         try:
@@ -70,34 +77,45 @@ class CustomSocket(socket.socket):
             elif lowered == "false":
                 return False
             else:
-                return decoding
+                return decoding # string
         
     def recv_unpickled(self) -> object | None:
+        """Recieve an object"""
         try:
             return pickle.loads(self.recv())
         except:
             return None
 
     def send(self, bytes_:bytes):
+        """Send bytes through socket
+        
+        Will throw an Exception if connection was closed"""
+
         if not bytes_:
             bytes_ = bytes()
 
-        try:
-            super().send(bytes(f"{len(bytes_):{COMMUNICATION.HEADING_CHAR}>{COMMUNICATION.HEADER}}", encoding=COMMUNICATION.ENCODING)) # Send the length of bytes to expect
-            super().send(bytes_) # send the bytes
-        except: 
-            pass
+        super().send(bytes(f"{len(bytes_):{COMMUNICATION.HEADING_CHAR}>{COMMUNICATION.HEADER}}", encoding=COMMUNICATION.ENCODING)) # Send the length of bytes to expect
+        super().send(bytes_) # send the bytes
 
     def send_literal(self, literal):
+        """Send a literal (String, Boolean, Number, None)
+        
+        Will throw an Exception if connection was closed"""
+
         self.send(bytes( str(literal), encoding=COMMUNICATION.ENCODING))
 
     def noop(self):
-        """Used to test connection and will return BaseException when connection failed"""
-        bytes_ = bytes( str(COMMUNICATION.CODES.NOOP), encoding=COMMUNICATION.ENCODING)
-        super().send(bytes(f"{len(bytes_):{COMMUNICATION.HEADING_CHAR}>{COMMUNICATION.HEADER}}", encoding=COMMUNICATION.ENCODING)) # Send the length of bytes to expect, could throw here
-        super().send(bytes_) # send the bytes, and could trow here
+        """Test connection
+        
+        Will throw an Exception if connection was closed"""
+
+        self.send(bytes( str(COMMUNICATION.CODES.NOOP), encoding=COMMUNICATION.ENCODING))
 
     def send_pickled(self, object):
+        """Send an object converted to bytes
+        
+        Will throw an Exception if connection was closed"""
+
         if object is not None:
             self.send(pickle.dumps(object))
         
