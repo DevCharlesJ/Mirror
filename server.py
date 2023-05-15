@@ -277,7 +277,7 @@ class Server():
         else:
             self.__newConnCallback = None
 
-    def getConnectionInfos(self) -> tuple:
+    def getConnectionInfos(self) -> list:
         """Returns list of 3-tuple (ip, xxxxx, conn_type title)"""
         infos = []
         for addr, value in self.__connection_pool.items():
