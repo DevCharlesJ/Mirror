@@ -169,10 +169,12 @@ class Streamer(Connection_Handler):
 
 
     def End(self):
+        super().End()
+
         if self.stream.isRunning():
             self.stream.stop()
 
-        super().End()
+        
 
 class Observer(Connection_Handler):
     def __init__(self, connection:Connection):
@@ -271,6 +273,8 @@ class Server():
         self.__running = False
         self.__newConnCallback = None
 
+        self.__managerThread:Thread = None
+
     def setNewConnectionCallback(self, callback):
         if callable(callback):
             self.__newConnCallback = callback
@@ -347,8 +351,8 @@ class Server():
                         except Exception as e:
                             print(e)
 
-        managerThread = Thread(target=manageConnectionPool)
-        managerThread.start()
+        self.__managerThread = Thread(target=manageConnectionPool)
+        self.__managerThread.start()
 
         while self.__running:
             print(f"{len(self.__connection_pool.keys())} Connections")
@@ -383,17 +387,24 @@ class Server():
                 print(f"REASON: {e.with_traceback(None)}")
 
 
-        managerThread.join()
+        self.__managerThread.join()
 
     def shutdown(self):
-        for handler, _ in self.__connection_pool.values():
-            self.destroyConnection(handler)
-
+        self.__running = False # Mark server as not running
         try:
-            self.socket.close()
+            self.socket.close() # Stop accepting connections and communications
         except: pass
 
-        self.__running = False
+        try:
+            self.__managerThread.join() # Wait for managerThread to join
+        except: pass
+
+        # All loops should've completed
+        
+
+        # Manually destroy each connection, and cleanup threads
+        for addr in list(self.__connection_pool):
+            self.destroyConnection(addr)
 
 
 
